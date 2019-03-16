@@ -5,6 +5,7 @@ import urllib.request, urllib.error
 from bs4 import BeautifulSoup
 import os
 import functools
+import traceback
 
 # create folder if need
 def createDirSafe(path):
@@ -21,29 +22,35 @@ def getmaxsize(sizeurl):
   soup = url2soup(sizeurl)
   sizejson = json.loads(str(soup))['sizes']
   widths = list(map(lambda x:x['width'], sizejson))
-  #print(maxwidth)
   return max(widths)
 
 def xxx(id, path):
-  # json:items
-  txtbase  = "https://digitalcollections.lib.washington.edu/digital/api/collections/chandless/items/%s/false"
-  # json:image width
-  sizebase = "https://digitalcollections.lib.washington.edu/digital/iiif/chandless/%s/info.json"
-  # full size image
-  fullbase = "https://digitalcollections.lib.washington.edu/digital/iiif/chandless/%s/full/%s,/0/default.jpg?highlightTerms="
   id = str(id).replace('\n', '')
   print("id=" + id)
-
-  txturl  = (txtbase % id)
-  sizeurl = (sizebase % id)
-  imgurl  = (fullbase % (id, getmaxsize(sizeurl)))
+  base ="https://digitalcollections.lib.washington.edu/digital/"
+  txtbase  = base + "api/collections/chandless/items/%s/false"		# json:items
+  sizebase = base + "iiif/chandless/%s/info.json"					# json:image width
+  fullbase = base + "iiif/chandless/%s/full/%s,/0/default.jpg"		# full size image
 
   # save json
-  with open(path+id+'.json', mode='w') as f:
-    json.dump(json.loads(str(url2soup(txturl))), f, indent=2)
+  fjson = path+id+'.json'
+  if(not os.path.exists(fjson)):
+    txturl  = (txtbase  % id)
+    with open(fjson, mode='w') as f:
+      try:
+        json.dump(json.loads(str(url2soup(txturl))), f, indent=2)
+      except:
+        traceback.print_exc()
 
   # save img
-  urllib.request.urlretrieve(imgurl, path+id+'.jpg')
+  fjpg = path+id+'.jpg'
+  if(not os.path.exists(fjpg)):
+    sizeurl = (sizebase % id)
+    try:
+      imgurl  = (fullbase % (id, getmaxsize(sizeurl)))
+      urllib.request.urlretrieve(imgurl, fjpg)
+    except:
+      traceback.print_exc()
 
 # -------------
 # memo howto create id.txt
@@ -56,6 +63,7 @@ createDirSafe(path)
 with open(fn, mode='r') as f:
   ids = f.readlines()
 
-with Pool(5) as p:
-  p.map(functools.partial(xxx, path=path), ids)
-
+#with Pool(1) as p:
+#  p.map(functools.partial(xxx, path=path), ids)
+for i in ids:
+  xxx(i, path)
